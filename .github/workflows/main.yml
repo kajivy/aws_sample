@@ -9,6 +9,6 @@ jobs:
       - uses: actions/checkout@v1
       - uses: pixta-dev/repository-mirroring-action@v1
         with:
-          target_repo_url: ssh://git-codecommist.ap-northeast-1.amazonaws.com/v1/repos/aws-test
+          target_repo_url: ssh://git-codecommit.ap-northeast-1.amazonaws.com/v1/repos/aws-test
           ssh_private_key: ${{ secrets.CODECOMMIT_SSH_PRIVATE_KEY }}
           ssh_username: ${{ secrets.CODECOMMIT_SSH_PRIVATE_KEY_ID }}
