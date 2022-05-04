@@ -1,14 +1,41 @@
-name: Mirroring
+name: Mirror to CodeCommit
 
-on: [push, delete]
+on:
+  push:
+
+env:
+  AWS_REGION: ap-northeast-1
+  AWS_ROLE_ARN: arn:aws:iam::214343766307:role/GithubActionsDeployRole
+  AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/awscreds
+  ECR_REPOSITORY: aws-test
 
 jobs:
-  to_codecommit:
-    runs-on: ubuntu-18.04
+  deploy:
+    name: Mirror
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
-      - uses: actions/checkout@v1
-      - uses: pixta-dev/repository-mirroring-action@v1
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
-          target_repo_url: ssh://git-codecommit.ap-northeast-1.amazonaws.com/v1/repos/aws-test
-          ssh_private_key: ${{ secrets.CODECOMMIT_SSH_PRIVATE_KEY }}
-          ssh_username: ${{ secrets.CODECOMMIT_SSH_PRIVATE_KEY_ID }}
+          fetch-depth: 0
+
+      - name: Configure AWS
+        run: |
+          echo AWS_WEB_IDENTITY_TOKEN_FILE=$AWS_WEB_IDENTITY_TOKEN_FILE >> $GITHUB_ENV
+          echo AWS_ROLE_ARN=$AWS_ROLE_ARN >> $GITHUB_ENV
+          echo AWS_DEFAULT_REGION=$AWS_REGION >> $GITHUB_ENV
+          curl --silent -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sigstore" | jq -r '.value' > $AWS_WEB_IDENTITY_TOKEN_FILE
+
+      - name: Configure git
+        run: |
+          git config --global credential.helper '!aws codecommit credential-helper $@'
+          git config --global credential.UseHttpPath true
+
+      - name: Mirroring
+        run: |
+          git remote add mirror https://git-codecommit.ap-northeast-1.amazonaws.com/v1/repos/$ECR_REPOSITORY
+          git push --tags --force --prune mirror "refs/remotes/origin/*:refs/heads/*"
