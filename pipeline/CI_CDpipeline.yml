@@ -198,7 +198,7 @@ Resources:
                 Provider: CodeCommit
               Configuration:
                 RepositoryName: !Ref RepositoryName
-                BranchName: main
+                BranchName: master
               OutputArtifacts:
                 - Name: SourceOutput
         - Name: Test
