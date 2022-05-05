@@ -24,5 +24,5 @@ phases:
           --output-template-file .cfn/packaged.yml
 artifacts:
   files:
-    - .cfn/*
+    - "**/*"
   discard-paths: yes
