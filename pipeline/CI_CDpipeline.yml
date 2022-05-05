@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: cfs CI/CD Pipeline
+Description: cloudformation CI/CD Pipeline
 
 Parameters:
   PJPrefix:
