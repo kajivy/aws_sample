@@ -1,11 +1,16 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: CI/CD Pipeline on CloudFotmation
+Description: cfs CI/CD Pipeline
 
 Parameters:
+  PJPrefix:
+    Type: String
   RepositoryName:
     Type: String
-    Default: aws-test
-    Description: aws codecommit repository names
+    Default: aws-cfn-template
+    Description: aws codecommit repository name
+  StackConfig:
+    Type: String
+    Default: param.json
   TemplateFilePath:
     Type: String
     Default: packaged.yml
@@ -16,11 +21,17 @@ Metadata:
       - Label:
           default: CodePipeline Configuration
         Parameters:
+          - PJPrefix
           - RepositoryName
+          - StackConfig
           - TemplateFilePath
     ParameterLabels:
+      PJPrefix:
+        default: Project Prefix
       RepositoryName:
         default: CodeCommit repository name
+      StackConfig:
+        default: Stack Configuration
       TemplateFilePath:
         default: Template File Path
 
@@ -28,20 +39,28 @@ Resources:
   ArtifactStoreBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: "infra-artifacts-bucket"
+      BucketName: !Join ["-", [!Ref PJPrefix, "infra-artifacts-bucket"]]
       LifecycleConfiguration:
         Rules:
-          - Id: !Join ["-", ["infra-artifacts-bucket", "life-cycle-rule"]]
+          - Id:
+              !Join [
+                "-",
+                [!Ref PJPrefix, "infra-artifacts-bucket", "life-cycle-rule"],
+              ]
             Status: Enabled
             ExpirationInDays: 14
 
   CodeBuildBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: "infra-code-build-bucket"
+      BucketName: !Join ["-", [!Ref PJPrefix, "infra-code-build-bucket"]]
       LifecycleConfiguration:
         Rules:
-          - Id: !Join ["-", ["infra-code-build-bucket", "life-cycle-rule"]]
+          - Id:
+              !Join [
+                "-",
+                [!Ref PJPrefix, "infra-code-build-bucket", "life-cycle-rule"],
+              ]
             Status: Enabled
             ExpirationInDays: 14
 
@@ -88,7 +107,7 @@ Resources:
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: "infra-code-build"
+      Name: !Join ["-", [!Ref PJPrefix, "infra-code-build"]]
       ServiceRole: !GetAtt CodeBuildRole.Arn
       Artifacts:
         Type: CODEPIPELINE
@@ -163,7 +182,7 @@ Resources:
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      Name: "infra-code-pipeline"
+      Name: !Join ["-", [!Ref PJPrefix, "infra-code-pipeline"]]
       RoleArn: !GetAtt PipelineRole.Arn
       ArtifactStore:
         Type: S3
@@ -179,7 +198,7 @@ Resources:
                 Provider: CodeCommit
               Configuration:
                 RepositoryName: !Ref RepositoryName
-                BranchName: master
+                BranchName: main
               OutputArtifacts:
                 - Name: SourceOutput
         - Name: Test
@@ -213,8 +232,9 @@ Resources:
                 ChangeSetName: changeset
                 RoleArn: !GetAtt CFnRole.Arn
                 Capabilities: CAPABILITY_IAM
-                StackName: "infra-stack"
+                StackName: !Join ["-", [!Ref PJPrefix, "infra-stack"]]
                 TemplatePath: !Sub TestOutput::${TemplateFilePath}
+                TemplateConfiguration: !Sub TestOutput::${StackConfig}
         - Name: Approval
           Actions:
             - Name: approve-changeset
@@ -232,7 +252,7 @@ Resources:
                 Version: 1
                 Provider: CloudFormation
               Configuration:
-                StackName: "infra-stack"
+                StackName: !Join ["-", [!Ref PJPrefix, "infra-stack"]]
                 ActionMode: CHANGE_SET_EXECUTE
                 ChangeSetName: changeset
                 RoleArn: !GetAtt CFnRole.Arn
