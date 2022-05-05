@@ -13,7 +13,7 @@ phases:
       - |
         mkdir -p cfn
         while template in [-f *.yml]; do
-          echo "$template" | xargs -I% -t aws cloudformation validate-template --template-body file://%
+          echo "$template" | xargs -I% -t aws cloudformation validate-template --template-body file://%;
         done
   build:
     commands:
@@ -22,7 +22,7 @@ phases:
       aws cloudformation package \
       --template-file *.yml \
       --s3-bucket $S3_BUCKET \
-      --output-template-file */packaged.yml
+      --output-template-file cfn/packaged.yml
 
 artifacts:
   files:
