@@ -16,6 +16,7 @@ phases:
           echo "$template" | xargs -I% -t aws cloudformation validate-template --template-body file://%
         done
   build:
+    on-failure: CONTINUE
     commands:
       - |
         aws cloudformation package \
