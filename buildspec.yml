@@ -2,16 +2,26 @@ version: 0.2
 
 phases:
   install:
-    on-failure: ABORT
     commands:
-      - pip3 install --upgrade pip
-      - pip3 install cfn-lint
-      - pip3 install pydot
+      - |
+        pip install -U pip
+        pip install -r requirements.txt
+  pre_build:
+    commands:
+      - |
+        aws configure set default.region $AWS_REGION
+        for template in *.yml; do
+          echo "$template" | xargs -I% -t aws cloudformation validate-template --template-body file://%
+        done
   build:
-    on-failure: CONTINUE
     commands:
-      - cfn-lint /*.yml; echo "test"
+      - |
+        aws cloudformation package \
+          --template-file *.yml \
+          --s3-bucket $S3_BUCKET \
+          --output-template-file */packaged.yml
+
 artifacts:
   files:
-    - "**/*"
+    - "*/*"
   discard-paths: yes
