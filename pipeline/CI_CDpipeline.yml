@@ -215,7 +215,6 @@ Resources:
                 Capabilities: CAPABILITY_IAM
                 StackName: "infra-stack"
                 TemplatePath: !Sub TestOutput::${TemplateFilePath}
-                TemplateConfiguration: TestOutput_sample
         - Name: Approval
           Actions:
             - Name: approve-changeset
