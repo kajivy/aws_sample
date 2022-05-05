@@ -22,10 +22,10 @@ phases:
       aws cloudformation package \
       --template-file cfn.yml \
       --s3-bucket $S3_BUCKET \
-      --output-template-file /packaged.yml
+      --output-template-file cfn/packaged.yml
 
 artifacts:
   files:
-    - "*/*"
+    - cfn/*
     - params/*
   discard-paths: yes
