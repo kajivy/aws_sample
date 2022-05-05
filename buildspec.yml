@@ -10,7 +10,7 @@ phases:
   build:
     on-failure: CONTINUE
     commands:
-      - cfn-lint cfn/*.yaml; echo "test"
+      - cfn-lint /*.yml; echo "test"
 artifacts:
   files:
     - "**/*"
