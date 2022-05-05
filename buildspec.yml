@@ -2,6 +2,7 @@ version: 0.2
 
 phases:
   install:
+    on-failure: ABORT
     commands:
       - |
         pip install -U pip
