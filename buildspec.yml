@@ -10,7 +10,7 @@ phases:
   pre_build:
     commands:
       - |
-        [ -d .cfn ] || mkdir .cfn
+        mkdir .cfn
         aws configure set default.region $AWS_REGION
         for template in *.yml; do
           echo "$template" | xargs -I% -t aws cloudformation validate-template --template-body file://%
