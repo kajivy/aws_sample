@@ -11,7 +11,8 @@ phases:
     on-failure: CONTINUE
     commands:
       - |
-        for template in *.yml; do
+        mkdir -p cfn
+        while template in [-f *.yml]; do
           echo "$template" | xargs -I% -t aws cloudformation validate-template --template-body file://%
         done
   build:
