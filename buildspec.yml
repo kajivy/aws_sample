@@ -20,7 +20,7 @@ phases:
     on-failure: CONTINUE
       - |
       aws cloudformation package \
-      --template-file *.yml \
+      --template-file cfn.yml \
       --s3-bucket $S3_BUCKET \
       --output-template-file cfn/packaged.yml
 
