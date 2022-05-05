@@ -98,7 +98,7 @@ Resources:
         Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
         EnvironmentVariables:
           - Name: AWS_REGION
-            Value: !Ref " AWS::Region"
+            Value: AWS::Region
           - Name: S3_BUCKET
             Value: !Ref CodeBuildBucket
       Source:
