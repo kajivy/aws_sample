@@ -5,7 +5,7 @@ Parameters:
   RepositoryName:
     Type: String
     Default: aws-test
-    Description: aws codecommit repository name
+    Description: aws codecommit repository names
   TemplateFilePath:
     Type: String
     Default: packaged.yml
