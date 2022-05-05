@@ -8,6 +8,7 @@ phases:
         pip install -U pip
         pip install -r requirements.txt
   pre_build:
+    on-failure: CONTINUE
     commands:
       - |
         [ -d cfn ] || mkdir cfn
