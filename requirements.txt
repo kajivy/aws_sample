@@ -1,1 +1,1 @@
-awscli:latest
+awscli>=2.1
