@@ -6,7 +6,7 @@ Parameters:
     Type: String
   RepositoryName:
     Type: String
-    Default: aws-cfn-template
+    Default: aws-test
     Description: aws CodeCommit repository name
   StackConfig:
     Type: String
