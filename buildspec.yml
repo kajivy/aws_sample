@@ -12,7 +12,7 @@ phases:
     commands:
       - |
         mkdir -p cfn
-        for template in /check_template/*.yml; do
+        for template in check_template/*.yml; do
           echo "$template" | xargs -I% -t aws cloudformation validate-template --template-body file://%;
         done
   build:
