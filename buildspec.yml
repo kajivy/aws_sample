@@ -12,6 +12,7 @@ phases:
     commands:
       - |
         mkdir -p cfn
+        aws configure set default.region $AWS_REGION
         for template in ./check_template/*.yml; do
           echo "$template" | xargs -I% -t aws cloudformation validate-template --template-body file://%;
         done
@@ -22,7 +23,7 @@ phases:
       aws cloudformation package \
       --template-file cfn.yml \
       --s3-bucket $S3_BUCKET \
-      --output-template-file .cfn/packaged.yml
+      --output-template-file cfn/packaged.yml
 
 artifacts:
   files:
