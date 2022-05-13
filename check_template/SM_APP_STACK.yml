@@ -1,0 +1,310 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  ClusterName:
+    Description: Please enter the Cluster name
+    Type: String
+    Default: test-cluster
+
+  ApplicationImageTag:
+    Type: String
+    Description: Application Docker Image Tag
+    Default: latest
+
+  ImageID:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
+
+Resources:
+  #RDSDB用secretmaneger
+  RDSSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      GenerateSecretString:
+        GenerateStringKey: "password"
+        PasswordLength: 8
+        SecretStringTemplate: '{ "username": "admin" }'
+        ExcludeCharacters: '"@/\'
+
+  #ECS
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref ClusterName
+
+  #タスク定義
+  testAppTaskDefenition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: todobackend
+      Volumes:
+        - Name: public
+          Host:
+            SourcePath: /data/public
+      ContainerDefinitions:
+        - Name: todobackend
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cloudtech/todobackend:${ApplicationImageTag}
+          MemoryReservation: 395
+          Cpu: 245
+          MountPoints:
+            - SourceVolume: public
+              ContainerPath: /public
+          Environment:
+            - Name: DJANGO_SETTINGS_MODULE
+              Value: todobackend.settings_release
+            - Name: MYSQL_HOST
+              Value: !Sub ${AppDatabase.Endpoint.Address}
+            - Name: MYSQL_DATABASE
+              Value: todobackend
+            - Name: SECRET_KEY
+              Value: some-random-secret-should-be-here
+          Command:
+            - uwsgi
+            - --http=0.0.0.0:8000
+            - --module=todobackend.wsgi
+            - --master
+            - --die-on-term
+            - --processes=4
+            - --threads=2
+            - --check-static=/public
+          PortMappings:
+            - ContainerPort: 8000
+              HostPort: 0
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /${AWS::StackName}/ecs/todobackend
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: docker
+        - Name: collectstatic
+          Essential: false
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cloudtech/todobackend:${ApplicationImageTag}
+          MemoryReservation: 6
+          Cpu: 5
+          MountPoints:
+            - SourceVolume: public
+              ContainerPath: /public
+          Environment:
+            - Name: DJANGO_SETTINGS_MODULE
+              Value: todobackend.settings_release
+          Command:
+            - python3
+            - manage.py
+            - collectstatic
+            - --no-input
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /${AWS::StackName}/ecs/todobackend
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: docker
+
+  #ロググループ作成
+  ECSLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /${AWS::StackName}/ecs/todobackend
+      RetentionInDays: 14
+
+  #サービス
+  AppService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - AppAutoscailing
+      - ECSLogGroup
+      - ApplicationLoadBalancerHttpListener
+    Properties:
+      Cluster: !Ref Cluster
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: 1
+      LoadBalancers:
+        - ContainerName: todobackend
+          ContainerPort: 8000
+          TargetGroupArn: !Ref ApplicationLoadBalancerTargetGroup
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS
+      TaskDefinition: !Ref testAppTaskDefenition
+
+  #RDS
+  AppDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      AvailabilityZone: !Sub ${AWS::Region}a
+      DBName: todobackend
+      DBSubnetGroupName: !ImportValue AppDatabaseSubnetGroup
+      Engine: mysql
+      EngineVersion: 8.0
+      MasterUsername: !Sub "{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}"
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}"
+      MultiAZ: false
+      StorageType: gp2
+      VPCSecurityGroups:
+        - !ImportValue AppDatabaseSecurityGroup
+      Tags:
+        - Key: Name
+          Value: Appdatabase
+
+  #ALB
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Scheme: internet-facing
+      SecurityGroups:
+        - !ImportValue ALBSecurityGroup
+      Subnets:
+        - !ImportValue PublicSubnet1
+        - !ImportValue PublicSubnet2
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: 30
+
+  ApplicationLoadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckEnabled: true
+      Port: 8000
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !ImportValue VPCID
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 30
+
+  ApplicationLoadBalancerHttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref ApplicationLoadBalancerTargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  #AutoScailing
+  AppAutoscailing:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    CreationPolicy:
+      ResourceSignal:
+        Count: 0
+        Timeout: PT5M
+    Properties:
+      DesiredCapacity: 1
+      LaunchConfigurationName: !Ref AppAutoscailingLaunchConfiguration
+      MaxSize: 4
+      MinSize: 1
+      VPCZoneIdentifier:
+        - !ImportValue PrivateSubnet1
+        - !ImportValue PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ApplicationAutoscaling-instance
+          PropagateAtLaunch: "true"
+
+  AppAutoscailingLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref ImageID
+      InstanceType: t2.micro
+      KeyName: test-keypair
+      IamInstanceProfile: !Ref AppAutoscailingInstanceProfile
+      SecurityGroups:
+        - !ImportValue AppAutoscailingSecurityGroupId
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            echo ECS_CLUSTER=${CLUSTERNAME} >> /etc/ecs/ecs.config
+            mkdir -p /data/public
+            chown -R 1000:1000 /data
+          - { CLUSTERNAME: !Ref ClusterName }
+  #role
+  ApplicationAutoscalingInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: ECSContainerInstancePermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:CreateCluster
+                  - ecs:RegisterContainerInstance
+                  - ecs:DeregisterContainerInstance
+                  - ecs:UpdateContainerInstancesState
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecs:DiscoverPollEndpoint
+                  - ecs:Submit*
+                  - ecs:Poll
+                  - ecs:StartTelemetrySession
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:GetAuthorizationToken
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/${AWS::StackName}*
+  #インスタンスプロファイル
+  AppAutoscailingInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref ApplicationAutoscalingInstanceRole
+
+  #RDS認証情報をSecretManegerへ登録
+  SecretRDSAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref RDSSecret
+      TargetId: !Ref AppDatabase
+      TargetType: AWS::RDS::DBInstance
+
+  #認証情報自動ローテーション
+  SecretRDSRotationSchedule:
+    Type: AWS::SecretsManager::RotationSchedule
+    DependsOn: SecretRDSAttachment
+    Properties:
+      RotationLambdaARN: !GetAtt SecretsManagerRDSMySQLRotationSingleUser.Outputs.RotationLambdaARN
+      RotationRules:
+        AutomaticallyAfterDays: 1
+      SecretId: !Ref RDSSecret
+
+  SecretsManagerRDSMySQLRotationSingleUser:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:297356227824:applications/SecretsManagerRDSMySQLRotationSingleUser
+        SemanticVersion: 1.1.228
+      Parameters:
+        endpoint: !Sub "https://secretsmanager.${AWS::Region}.amazonaws.com"
+        functionName: MyLambdaRotaionFunction
+
+Outputs:
+  PublicURL:
+    Description: Public DNS name of Application Load Balancer
+    Value: !Sub ${ApplicationLoadBalancer.DNSName}

@@ -1,0 +1,311 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  Environment:
+    Type: String
+    Default: test
+    AllowedValues:
+      - test
+      - dev
+
+Mappings:
+  EnviromentMappings:
+    test:
+      PublicSubnet1Cidr: 10.0.10.0/24
+      PublicSubnet2Cidr: 10.0.20.0/24
+      PrivateSubnet1Cidr: 10.0.30.0/24
+      PrivateSubnet2Cidr: 10.0.40.0/24
+
+    dev:
+      PublicSubnet1Cidr: 10.16.10.0/24
+      PublicSubnet2Cidr: 10.16.20.0/24
+      PrivateSubnet1Cidr: 10.16.30.0/24
+      PrivateSubnet2Cidr: 10.16.40.0/24
+
+Resources:
+  # サブネットの作成
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: ""
+      VpcId: !ImportValue VPCID
+      CidrBlock:
+        !FindInMap [EnviromentMappings, !Ref Environment, PublicSubnet1Cidr]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 1
+          - Fn::GetAZs: ""
+      VpcId: !ImportValue VPCID
+      CidrBlock:
+        !FindInMap [EnviromentMappings, !Ref Environment, PublicSubnet2Cidr]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: ""
+      VpcId: !ImportValue VPCID
+      CidrBlock:
+        !FindInMap [EnviromentMappings, !Ref Environment, PrivateSubnet1Cidr]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 1
+          - Fn::GetAZs: ""
+      VpcId: !ImportValue VPCID
+      CidrBlock:
+        !FindInMap [EnviromentMappings, !Ref Environment, PrivateSubnet2Cidr]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet2
+
+  #ルートテーブル(pablic)の作成
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !ImportValue VPCID
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable
+
+  DefaultRouteTabele:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !ImportValue InternetGatewayID
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  #ルートテーブル(private)の作成
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !ImportValue VPCID
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTable
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet2
+
+  #NATGatewayをパブリックサブネットへ作成
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !ImportValue ElasticIP
+      SubnetId: !Ref PublicSubnet1
+
+  #NATGateway用のルーティングをprivateサブネットのルートテーブルに追加する
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    DependsOn: NatGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+      RouteTableId: !Ref PrivateRouteTable
+
+  #RDS用SubnetGroup
+  AppDatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Application Database Subnet Group
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  #RDSSecurityGroup
+  AppDatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Application Database Security Group
+      SecurityGroupEgress:
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 192.0.2.0/32
+      VpcId: !ImportValue VPCID
+
+  AppToAppDatabaseIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      FromPort: 3306
+      GroupId: !Ref AppDatabaseSecurityGroup
+      IpProtocol: tcp
+      SourceSecurityGroupId: !Ref AppAutoscailingSecurityGroup
+      ToPort: 3306
+
+  AppToDatabaseEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      DestinationSecurityGroupId: !Ref AppDatabaseSecurityGroup
+      FromPort: 3306
+      GroupId: !Ref AppAutoscailingSecurityGroup
+      IpProtocol: tcp
+      ToPort: 3306
+
+  #セキュリティーグループ（EC2）
+  AppAutoscailingSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Application Autoscaling Security Group
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: udp
+          FromPort: 53
+          ToPort: 53
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      VpcId: !ImportValue VPCID
+
+  #セキュリティーグループ（ALB）
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALBSecurityGroup
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      VpcId: !ImportValue VPCID
+
+  ALBToAppIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      FromPort: 32768
+      GroupId: !Ref AppAutoscailingSecurityGroup
+      IpProtocol: tcp
+      SourceSecurityGroupId: !Ref ALBSecurityGroup
+      ToPort: 60999
+
+  ALBToAppEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      DestinationSecurityGroupId: !Ref AppAutoscailingSecurityGroup
+      FromPort: 32768
+      GroupId: !Ref ALBSecurityGroup
+      IpProtocol: tcp
+      ToPort: 60999
+
+Outputs:
+  PublicSubnet1:
+    Description: PublicSubnet1 logical id
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: PublicSubnet1
+
+  PublicSubnet2:
+    Description: PublicSubnet2 logical id
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: PublicSubnet2
+
+  PrivateSubnet1:
+    Description: PrivateSubnet1
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: PrivateSubnet1
+
+  PrivateSubnet2:
+    Description: PrivateSubnet2
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: PrivateSubnet2
+
+  AppAutoscailingSecurityGroup:
+    Description: AppAutoscailingSecurityGroup GrouoId
+    Value: !GetAtt AppAutoscailingSecurityGroup.GroupId
+    Export:
+      Name: AppAutoscailingSecurityGroupId
+
+  ALBSecurityGroup:
+    Description: ALBSecurityGroup
+    Value: !Ref ALBSecurityGroup
+    Export:
+      Name: ALBSecurityGroup
+
+  AppDatabaseSecurityGroup:
+    Description: AppDatabaseSecurityGroup
+    Value: !Ref AppDatabaseSecurityGroup
+    Export:
+      Name: AppDatabaseSecurityGroup
+
+  AppDatabaseSecurityGroupID:
+    Value: !GetAtt AppDatabaseSecurityGroup.GroupId
+    Export:
+      Name: AppDatabaseSecurityGroupID
+
+  AppDatabaseSubnetGroup:
+    Description: AppDatabaseSubnetGroup
+    Value: !Ref AppDatabaseSubnetGroup
+    Export:
+      Name: AppDatabaseSubnetGroup
+
+  AppAutoscailingSecurityGroupID:
+    Value: !GetAtt AppAutoscailingSecurityGroup.GroupId
+    Export:
+      Name: AppAutoscailingSecurityGroupID
+
+  ALBSecurityGroupID:
+    Value: !GetAtt ALBSecurityGroup.GroupId
+    Export:
+      Name: ALBSecurityGroupID

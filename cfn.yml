@@ -1,0 +1,24 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFormation CI/CD Demo
+
+Resources:
+  ECR:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: check_template/ECR.yml
+
+  NW:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: check_template/network_mappings.yml
+
+  APP:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: check_template/SM_APP_STACK.yml
+
+  subnet:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: /check_template/subnet_stack_mappings.yml

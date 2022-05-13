@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  Environment:
+    Type: String
+    Default: test
+    AllowedValues:
+      - test
+      - dev
+
+Mappings:
+  VPCMap:
+    test:
+      VPCCidr: 10.0.0.0/16
+    dev:
+      VPCCidr: 10.16.0.0/16
+
+Resources:
+  MYVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap [VPCMap, !Ref Environment, VPCCidr]
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: MYVPC
+
+  MYIG:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Namme
+          Value: InternetGateway
+  GatewayAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref MYIG
+      VpcId: !Ref MYVPC
+
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+Outputs:
+  VPCCidr:
+    Description: VPCID
+    Value: !Ref MYVPC
+    Export:
+      Name: VPCID
+
+  InternetGateway:
+    Description: InternetGatewayID
+    Value: !Ref MYIG
+    Export:
+      Name: InternetGatewayID
+
+  ElasticIP:
+    Description: ElasticIP
+    Value: !GetAtt EIP.AllocationId
+    Export:
+      Name: ElasticIP
