@@ -20,4 +20,4 @@ Resources:
   subnet:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: /check_template/subnet_stack_mappings.yml
+      TemplateURL: check_template/subnet_stack_mappings.yml
