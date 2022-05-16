@@ -1,6 +1,25 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: CloudFormation CI/CD Demo
 
+Parameters:
+  Environment:
+    Type: String
+    Default: test
+
+  ClusterName:
+    Description: Please enter the Cluster name
+    Type: String
+    Default: test-cluster
+
+  ApplicationImageTag:
+    Type: String
+    Description: Application Docker Image Tag
+    Default: latest
+
+  ImageID:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
+
 Resources:
   ECR:
     Type: AWS::CloudFormation::Stack
@@ -11,13 +30,21 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: check_template/network_mappings.yml
-
-  APP:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      TemplateURL: check_template/SM_APP_STACK.yml
+      Parameters:
+        Environment: !Ref Environment
 
   subnet:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: check_template/subnet_stack_mappings.yml
+      Parameters:
+        Environment: !Ref Environment
+
+  SM_APP_STACK:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: check_template/SM_APP_STACK.yml
+      Parameters:
+        ClusterName: !Ref ClusterName
+        ApplicationImageTag: !Ref ApplicationImageTag
+        ImageID: !Ref ImageID
