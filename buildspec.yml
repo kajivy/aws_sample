@@ -21,7 +21,7 @@ phases:
     commands:
       - |
         aws cloudformation package \
-        --template-file ./check_template/*.yml \
+        --template-file ECR.yml \
         --s3-bucket $S3_BUCKET \
         --output-template-file cfn/packaged.yml
 
