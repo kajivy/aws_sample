@@ -14,8 +14,7 @@ Parameters:
     Default: latest
 
   ImageID:
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
+    Type: String
 
 Resources:
   #RDSDB用secretmaneger
