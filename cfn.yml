@@ -64,7 +64,7 @@ Resources:
       Parameters:
         Environment: !Ref Environment
 
-  SM_APP_STACK:
+  application:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: check_template/SM_APP_STACK.yml
