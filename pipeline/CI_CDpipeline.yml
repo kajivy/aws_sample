@@ -254,7 +254,7 @@ Resources:
               Configuration:
                 StackName: !Join ["-", [!Ref PJPrefix, "infra-stack"]]
                 ActionMode: CHANGE_SET_EXECUTE
-                Capabilities: CAPABILITY_AUTO_EXPAND
+                Capabilities: CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND
                 ChangeSetName: changeset
                 RoleArn: !GetAtt CFnRole.Arn
 
