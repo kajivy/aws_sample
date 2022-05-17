@@ -7,7 +7,7 @@ Parameters:
   RepositoryName:
     Type: String
     Default: aws-test
-    Description: aws CodeCommit repository name
+    Description: aws CodeCommit repository names
   StackConfig:
     Type: String
     Default: param.json
