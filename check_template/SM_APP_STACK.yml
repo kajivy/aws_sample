@@ -10,7 +10,7 @@ Parameters:
 
   ApplicationImageTag:
     Type: String
-    Description: Application Docker Image Tags
+    Description: Application Docker Image Tag
     Default: latest
 
   ImageID:
