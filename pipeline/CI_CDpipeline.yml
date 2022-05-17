@@ -231,7 +231,7 @@ Resources:
                 ActionMode: CHANGE_SET_REPLACE
                 ChangeSetName: changeset
                 RoleArn: !GetAtt CFnRole.Arn
-                Capabilities: CAPABILITY_IAM
+                Capabilities: CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND
                 StackName: !Join ["-", [!Ref PJPrefix, "infra-stack"]]
                 TemplatePath: !Sub TestOutput::${TemplateFilePath}
                 TemplateConfiguration: !Sub TestOutput::${StackConfig}
