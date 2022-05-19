@@ -28,18 +28,21 @@ Resources:
 
   MYIG:
     Type: AWS::EC2::InternetGateway
+    DependsOn: MYVPC
     Properties:
       Tags:
-        - Key: Namme
+        - Key: Name
           Value: InternetGateway
   GatewayAttach:
     Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn: MYIG
     Properties:
       InternetGatewayId: !Ref MYIG
       VpcId: !Ref MYVPC
 
   EIP:
     Type: AWS::EC2::EIP
+    DependsOn: GatewayAttach
     Properties:
       Domain: vpc
 
