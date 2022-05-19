@@ -2,20 +2,6 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: CloudFormation CI/CD Demo
 
 Parameters:
-  PJPrefix:
-    Type: String
-    Default: sample
-  RepositoryName:
-    Type: String
-    Default: aws-test
-    Description: aws CodeCommit repository names
-  StackConfig:
-    Type: String
-    Default: param.json
-  TemplateFilePath:
-    Type: String
-    Default: packaged.yml
-
   Environment:
     Type: String
     Default: test
@@ -35,16 +21,6 @@ Parameters:
     Default: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
 
 Resources:
-  pipeline:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      TemplateURL: pipeline/CI_CDpipeline.yml
-      Parameters:
-        PJPrefix: !Ref PJPrefix
-        RepositoryName: !Ref RepositoryName
-        StackConfig: !Ref StackConfig
-        TemplateFilePath: !Ref TemplateFilePath
-
   ECR:
     Type: AWS::CloudFormation::Stack
     Properties:
