@@ -52,6 +52,7 @@ Resources:
 
   NW:
     Type: AWS::CloudFormation::Stack
+    DependsOn: ECR
     Properties:
       TemplateURL: check_template/network_mappings.yml
       Parameters:
@@ -59,6 +60,7 @@ Resources:
 
   subnet:
     Type: AWS::CloudFormation::Stack
+    DependsOn: NW
     Properties:
       TemplateURL: check_template/subnet_stack_mappings.yml
       Parameters:
@@ -66,6 +68,7 @@ Resources:
 
   application:
     Type: AWS::CloudFormation::Stack
+    DependsOn: subnet
     Properties:
       TemplateURL: check_template/SM_APP_STACK.yml
       Parameters:
