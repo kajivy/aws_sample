@@ -35,14 +35,8 @@ Parameters:
     Default: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
 
 Resources:
-  ECR:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      TemplateURL: check_template/ECR.yml
-
   NW:
     Type: AWS::CloudFormation::Stack
-    DependsOn: ECR
     Properties:
       TemplateURL: check_template/network_mappings.yml
       Parameters:
