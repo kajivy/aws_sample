@@ -19,6 +19,7 @@ Parameters:
   Environment:
     Type: String
     Default: test
+  #dev環境を選択する場合は、この値をdevへ変更する
 
   ClusterName:
     Description: Please enter the Cluster name
