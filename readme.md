@@ -42,7 +42,7 @@ aws_sampleリポジトリ</summary>
 # 構成
 dev環境
 <br>
-![ecs](https://user-images.githubusercontent.com/63146738/169679158-7e7d3688-bb3d-4132-a279-2c1c50ae73df.png)
+![ecs](https://user-images.githubusercontent.com/63146738/169679255-08f466f6-24cb-4986-b1e5-fa5b0ba9a78f.png)
 
 
 # Ho to use
