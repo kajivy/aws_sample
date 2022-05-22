@@ -42,8 +42,9 @@ aws_sampleリポジトリ</summary>
 # 構成
 dev環境
 <br>
+![ecs](https://user-images.githubusercontent.com/63146738/169679158-7e7d3688-bb3d-4132-a279-2c1c50ae73df.png)
 
-![](Library/Mobile%20Documents/com~apple~CloudDocs/Documents/aws/ecs.png)
+
 # Ho to use
 
 <details>
